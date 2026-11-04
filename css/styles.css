@@ -130,6 +130,20 @@ body {
   max-width: 36rem;
 }
 
+/* Expected file name hint (Steps 1 and 3). Any .xlsx with the right
+   contents works; this just helps people find the usual download. */
+.file-hint {
+  color: var(--muted);
+  font-size: 0.95rem;
+  margin: -0.5rem 0 1rem;
+  max-width: 36rem;
+}
+.filename {
+  color: var(--ink);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
 .step-control {
   display: flex;
   flex-wrap: wrap;
