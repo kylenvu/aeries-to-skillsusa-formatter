@@ -271,15 +271,21 @@ function findRosterHeader(row) {
   return col;
 }
 
+function stripMarkers(value) {
+  return value.replace(/\*/g, "").replace(/\s+/g, " ").trim();
+}
+
 // "Doe, Jane" -> { lastName: "Doe", firstName: "Jane" }.
 // Splits at the first comma. Returns null if the cell isn't in that format.
+// Aeries marks some students with an asterisk (e.g. "*Doe" or "Doe*");
+// asterisks are removed so only the name is kept.
 function splitStudentName(value) {
   const text = cleanCell(value);
   const comma = text.indexOf(",");
   if (comma === -1) return null;
 
-  const lastName = text.slice(0, comma).trim();
-  const firstName = text.slice(comma + 1).trim();
+  const lastName = stripMarkers(text.slice(0, comma));
+  const firstName = stripMarkers(text.slice(comma + 1));
   if (!lastName || !firstName) return null;
   return { lastName, firstName };
 }
