@@ -1,16 +1,6 @@
 // ============================================================
 // Aeries to SkillsUSA Roster Converter
 // ============================================================
-//
-// Security notes
-// - Runs entirely offline. Every file it needs is in this project; the
-//   Content-Security-Policy in index.html blocks all network connections.
-// - Uploaded files are read in memory and never sent anywhere.
-// - Text from uploaded files is only ever placed in the page with
-//   textContent (never innerHTML), so it can't run as code.
-// - harden.js freezes Object.prototype before SheetJS loads.
-// - Only the parsed SkillsUSA template (program names and IDs) is kept in
-//   sessionStorage. Student data is never stored.
 
 // ---------- Element references ----------
 const steps = {
@@ -36,21 +26,13 @@ const studentTableBody = document.getElementById("student-table-body");
 const downloadBtn     = document.getElementById("download-btn");
 const downloadMessage = document.getElementById("download-message");
 
-// ---------- App state ----------
-// Largest upload accepted. Real templates and rosters are far smaller;
-// the cap stops an oversized or malicious file from freezing the tab.
+// ---------- Settings ----------
 const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+const READ_TIMEOUT_MS = 15000;
+const WORKER_URL = "js/sheet-reader.js";
+const MAX_VALUE_LENGTH = 200;
 
-// SheetJS read settings: values only, nothing the app doesn't use.
-const READ_OPTIONS = {
-  type: "array",
-  cellFormula: false, // ignore formulas, read the stored values
-  cellHTML: false,    // don't build HTML versions of cells
-  cellStyles: false,
-  bookVBA: false,     // never load macros
-  sheetRows: 20000,   // stop reading past 20,000 rows per sheet
-};
-
+// ---------- App state ----------
 const state = {
   templateFileName: "",
   // Parsed template, kept so the output file can match it later:
@@ -87,27 +69,118 @@ function cleanCell(value) {
   return String(value ?? "").trim();
 }
 
-// Reads a SheetJS workbook and returns { sheetName, headers, programs }.
+// Values starting with characters a name, email or ID never starts with.
+function looksLikeFormula(value) {
+  return /^[=+\-@\t\r]/.test(String(value ?? ""));
+}
+
+function isUnexpectedValue(value) {
+  return looksLikeFormula(value) || String(value ?? "").length > MAX_VALUE_LENGTH;
+}
+
+function isValidEmail(value) {
+  return value.length <= 254 && /^[^\s@,;<>"]+@[^\s@,;<>"]+\.[^\s@,;<>"]+$/.test(value);
+}
+
+// ============================================================
+// FILE READING
+// ============================================================
+
+let workerUrlPolicy = null;
+function workerScriptUrl() {
+  if (window.trustedTypes && window.trustedTypes.createPolicy) {
+    if (!workerUrlPolicy) {
+      workerUrlPolicy = window.trustedTypes.createPolicy("worker-url", {
+        createScriptURL: (url) => {
+          if (url !== WORKER_URL) throw new TypeError("Unexpected worker URL");
+          return url;
+        },
+      });
+    }
+    return workerUrlPolicy.createScriptURL(WORKER_URL);
+  }
+  return WORKER_URL;
+}
+
+// Reads a file in a background worker so the page stays responsive.
+// Falls back to reading on the page if workers can't start (e.g. file://).
+function readSheets(buffer) {
+  return new Promise((resolve, reject) => {
+    let worker;
+    try {
+      worker = new Worker(workerScriptUrl());
+    } catch (err) {
+      try { resolve(readWorkbookRows(buffer)); } catch (e) { reject(e); }
+      return;
+    }
+
+    let ready = false;
+    const finish = () => {
+      clearTimeout(timer);
+      worker.terminate();
+    };
+    const timer = setTimeout(() => {
+      finish();
+      reject(new SheetReadError("timeout"));
+    }, READ_TIMEOUT_MS);
+
+    worker.onmessage = (event) => {
+      const msg = event.data || {};
+      if (msg.type === "ready") {
+        ready = true;
+        return;
+      }
+      finish();
+      if (msg.type === "result" && Array.isArray(msg.sheets)) resolve(msg.sheets);
+      else reject(new SheetReadError(typeof msg.code === "string" ? msg.code : "read"));
+    };
+
+    worker.onerror = (event) => {
+      event.preventDefault();
+      finish();
+      if (ready) {
+        reject(new SheetReadError("read"));
+        return;
+      }
+      try { resolve(readWorkbookRows(buffer)); } catch (e) { reject(e); }
+    };
+
+    worker.postMessage(buffer);
+  });
+}
+
+function readErrorMessage(err, fallback) {
+  const code = err && err.code;
+  if (code === "too-many-sheets") {
+    return "This file has more sheets than expected. Check that you chose the right file.";
+  }
+  if (code === "too-large") {
+    return "This file has more rows or columns than expected. Check that you chose the right file.";
+  }
+  if (code === "timeout") {
+    return "This file took too long to read and was stopped. Check that you chose the right file.";
+  }
+  if (code === "missing-library") {
+    return "The spreadsheet reader didn't load. Reload the page and try again.";
+  }
+  return fallback;
+}
+
+// Takes [{ name, rows }] and returns { sheetName, headers, programs, skippedCount }.
 // Looks through every sheet for a header row containing "TrainingProgram".
-function parseTemplate(workbook) {
-  for (const sheetName of workbook.SheetNames) {
-    const sheet = workbook.Sheets[sheetName];
-
-    // header: 1 gives an array of rows; raw: false keeps IDs as text
-    // so values like leading zeros are not lost.
-    const rows = XLSX.utils.sheet_to_json(sheet, {
-      header: 1,
-      raw: false,
-      defval: "",
-      blankrows: false,
-    });
-
+function parseTemplate(sheets) {
+  for (const { name: sheetName, rows } of sheets) {
     const headerRowIndex = rows.findIndex((row) =>
       row.some((cell) => normalizeHeader(cell) === "trainingprogram")
     );
     if (headerRowIndex === -1) continue;
 
     const headers = rows[headerRowIndex].map(cleanCell);
+    if (headers.some(isUnexpectedValue)) {
+      throw new TemplateError(
+        "This template has unexpected content in its column headers. Download a fresh template from SkillsUSA and try again."
+      );
+    }
 
     // Find the column position of each required header.
     const col = {};
@@ -128,6 +201,7 @@ function parseTemplate(workbook) {
     // One entry per unique training program + section.
     const programs = [];
     const seen = new Set();
+    let skippedCount = 0;
     for (const row of rows.slice(headerRowIndex + 1)) {
       const program = {
         chapterId: cleanCell(row[col.chapterId]),
@@ -136,6 +210,10 @@ function parseTemplate(workbook) {
         trainingProgram: cleanCell(row[col.trainingProgram]),
       };
       if (!program.trainingProgram) continue;
+      if (Object.values(program).some(isUnexpectedValue)) {
+        skippedCount++;
+        continue;
+      }
 
       const key = `${program.sectionId}|${program.trainingProgram}`;
       if (seen.has(key)) continue;
@@ -145,11 +223,13 @@ function parseTemplate(workbook) {
 
     if (!programs.length) {
       throw new TemplateError(
-        "This template has a TrainingProgram column, but no programs are listed under it."
+        skippedCount
+          ? "None of the training programs in this template could be used because they contain unexpected characters."
+          : "This template has a TrainingProgram column, but no programs are listed under it."
       );
     }
 
-    return { sheetName, headers, programs };
+    return { sheetName, headers, programs, skippedCount };
   }
 
   throw new TemplateError(
@@ -204,23 +284,18 @@ function splitStudentName(value) {
   return { lastName, firstName };
 }
 
-// Reads a SheetJS workbook and returns
-// { students, classCount, duplicateCount, missingEmailCount }.
-function parseRoster(workbook) {
+// Takes [{ name, rows }] and returns
+// { students, classCount, duplicateCount, missingEmailCount, invalidEmailCount, unexpectedCount }.
+function parseRoster(sheets) {
   const students = [];
   const seen = new Set();
   let classCount = 0;
   let duplicateCount = 0;
   let missingEmailCount = 0;
+  let invalidEmailCount = 0;
+  let unexpectedCount = 0;
 
-  for (const sheetName of workbook.SheetNames) {
-    const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
-      header: 1,
-      raw: false,
-      defval: "",
-      blankrows: false,
-    });
-
+  for (const { rows } of sheets) {
     let col = null; // column map from the most recent header row
 
     for (const row of rows) {
@@ -244,6 +319,14 @@ function parseRoster(workbook) {
         missingEmailCount++;
         continue;
       }
+      if ([name.lastName, name.firstName, email, gender].some(isUnexpectedValue)) {
+        unexpectedCount++;
+        continue;
+      }
+      if (!isValidEmail(email)) {
+        invalidEmailCount++;
+        continue;
+      }
 
       // Same student in two classes = same name and same email.
       const key = [name.lastName, name.firstName, email]
@@ -265,11 +348,11 @@ function parseRoster(workbook) {
   }
   if (!students.length) {
     throw new RosterError(
-      "No students with an email address in the SEM column were found in this file."
+      "No students with a valid email address in the SEM column were found in this file."
     );
   }
 
-  return { students, classCount, duplicateCount, missingEmailCount };
+  return { students, classCount, duplicateCount, missingEmailCount, invalidEmailCount, unexpectedCount };
 }
 
 // ============================================================
@@ -283,8 +366,6 @@ function buildOutputRows(template, program, students) {
   const headers = [...template.headers];
   while (headers.length && !headers[headers.length - 1]) headers.pop();
 
-  // A Map (not a plain object) so a header such as "constructor" or
-  // "__proto__" can't match a built-in object property.
   const valueFor = new Map([
     ["chapterid",       () => toNumberIfSafe(program.chapterId)],
     ["chaptername",     () => program.chapterName],
@@ -313,6 +394,16 @@ function toNumberIfSafe(value) {
   return /^[1-9]\d{0,14}$/.test(value) ? Number(value) : value;
 }
 
+// Excel sheet names: max 31 characters, none of [ ] : * ? / \
+function safeSheetName(name) {
+  const cleaned = String(name ?? "")
+    .replace(/[\[\]:*?\/\\]/g, "")
+    .replace(/^'+|'+$/g, "")
+    .trim()
+    .slice(0, 31);
+  return cleaned || "Sheet1";
+}
+
 // "Program A (TeacherA)" -> "Program_A_TeacherA"
 function safeFileName(text) {
   return text.replace(/[^A-Za-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "Program";
@@ -334,11 +425,10 @@ function downloadOutput() {
   }));
 
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, sheet, state.template.sheetName || "Sheet1");
+  XLSX.utils.book_append_sheet(workbook, sheet, safeSheetName(state.template.sheetName));
 
   const fileName = `SkillsUSA_${safeFileName(state.selectedProgram.trainingProgram)}_${todayStamp()}.xlsx`;
 
-  // Save through a temporary link so the page itself never navigates.
   const bytes = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
   const blob = new Blob([bytes], {
     type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -403,13 +493,15 @@ function setMessage(el, text, type = "") {
 }
 
 // Fill the Step 2 dropdown. Option values are array indexes into state.programs.
-function populatePrograms(programs) {
-  programSelect.innerHTML = "";
-
+function setProgramPlaceholder(text) {
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = "Select a training program";
-  programSelect.appendChild(placeholder);
+  placeholder.textContent = text;
+  programSelect.replaceChildren(placeholder);
+}
+
+function populatePrograms(programs) {
+  setProgramPlaceholder("Select a training program");
 
   programs.forEach((p, index) => {
     const opt = document.createElement("option");
@@ -420,7 +512,7 @@ function populatePrograms(programs) {
 }
 
 function showStudentPreview(students) {
-  studentTableBody.innerHTML = "";
+  studentTableBody.replaceChildren();
   students.forEach((s) => {
     const tr = document.createElement("tr");
     [s.lastName, s.firstName, s.email, s.gender].forEach((value) => {
@@ -463,7 +555,11 @@ function saveSession() {
       SESSION_KEY,
       JSON.stringify({
         templateFileName: state.templateFileName,
-        template: state.template,
+        template: {
+          sheetName: state.template.sheetName,
+          headers: state.template.headers,
+          programs: state.template.programs,
+        },
         selectedIndex,
       })
     );
@@ -472,20 +568,21 @@ function saveSession() {
   }
 }
 
-// Checks that restored data has exactly the expected shape before use.
 function isValidSavedTemplate(saved) {
   const isString = (v) => typeof v === "string";
+  const isCleanString = (v) => isString(v) && !isUnexpectedValue(v);
   const t = saved && saved.template;
   return (
     !!t &&
     isString(saved.templateFileName) &&
     Number.isInteger(saved.selectedIndex) &&
     isString(t.sheetName) &&
-    Array.isArray(t.headers) && t.headers.every(isString) &&
+    Array.isArray(t.headers) && t.headers.every(isCleanString) &&
     Array.isArray(t.programs) && t.programs.length > 0 &&
     t.programs.every((p) =>
-      p && isString(p.chapterId) && isString(p.chapterName) &&
-      isString(p.sectionId) && isString(p.trainingProgram)
+      p && isCleanString(p.chapterId) && isCleanString(p.chapterName) &&
+      isCleanString(p.sectionId) && isCleanString(p.trainingProgram) &&
+      p.trainingProgram !== ""
     )
   );
 }
@@ -498,7 +595,20 @@ function restoreSession() {
       return false;
     }
 
-    applyTemplate(saved.template, saved.templateFileName);
+    applyTemplate(
+      {
+        sheetName: saved.template.sheetName,
+        headers: saved.template.headers,
+        skippedCount: 0,
+        programs: saved.template.programs.map((p) => ({
+          chapterId: p.chapterId,
+          chapterName: p.chapterName,
+          sectionId: p.sectionId,
+          trainingProgram: p.trainingProgram,
+        })),
+      },
+      saved.templateFileName
+    );
     if (saved.selectedIndex >= 0) {
       selectProgram(saved.selectedIndex);
     }
@@ -539,7 +649,7 @@ function clearTemplate() {
   templateInput.value = "";
   showFileName(templateName, null);
   setMessage(templateMessage, "");
-  programSelect.innerHTML = '<option value="">Upload a template first</option>';
+  setProgramPlaceholder("Upload a template first");
   templatePicker.hidden = false;
   changeTemplateBtn.hidden = true;
   clearProgram();
@@ -559,7 +669,11 @@ function applyTemplate(template, fileName) {
   changeTemplateBtn.hidden = false;
 
   const count = template.programs.length;
-  setMessage(templateMessage, `Found ${count} training program${count === 1 ? "" : "s"}.`, "success");
+  let text = `Found ${count} training program${count === 1 ? "" : "s"}.`;
+  if (template.skippedCount) {
+    text += ` ${template.skippedCount} skipped because ${template.skippedCount === 1 ? "it contains" : "they contain"} unexpected characters.`;
+  }
+  setMessage(templateMessage, text, "success");
   goToStep(2);
   saveSession();
 }
@@ -597,23 +711,16 @@ templateInput.addEventListener("change", async () => {
     return;
   }
 
-  if (typeof XLSX === "undefined") {
-    setMessage(templateMessage, "The spreadsheet reader didn't load. Check that xlsx.full.min.js is in the js folder, then reload the page.", "error");
-    templateInput.value = "";
-    return;
-  }
-
   setMessage(templateMessage, "Reading template…");
 
   try {
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, READ_OPTIONS);
-    applyTemplate(parseTemplate(workbook), file.name);
+    const sheets = await readSheets(await file.arrayBuffer());
+    applyTemplate(parseTemplate(sheets), file.name);
   } catch (err) {
     console.error(err);
     const text = err instanceof TemplateError
       ? err.message
-      : "This file couldn't be read as an Excel workbook. Try downloading the template again.";
+      : readErrorMessage(err, "This file couldn't be read as an Excel workbook. Try downloading the template again.");
     setMessage(templateMessage, text, "error");
     templateInput.value = "";
   }
@@ -666,9 +773,8 @@ rosterInput.addEventListener("change", async () => {
   setMessage(rosterMessage, "Reading roster…");
 
   try {
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data, READ_OPTIONS);
-    const result = parseRoster(workbook);
+    const sheets = await readSheets(await file.arrayBuffer());
+    const result = parseRoster(sheets);
 
     state.rosterFile = file;
     state.students = result.students;
@@ -685,13 +791,19 @@ rosterInput.addEventListener("change", async () => {
     if (result.missingEmailCount) {
       parts.push(`${result.missingEmailCount} skipped for a blank SEM email.`);
     }
+    if (result.invalidEmailCount) {
+      parts.push(`${result.invalidEmailCount} skipped for an invalid email address.`);
+    }
+    if (result.unexpectedCount) {
+      parts.push(`${result.unexpectedCount} skipped for unexpected characters.`);
+    }
     setMessage(rosterMessage, parts.join(" "), "success");
     goToStep(4);
   } catch (err) {
     console.error(err);
     const text = err instanceof RosterError
       ? err.message
-      : "This file couldn't be read as an Excel workbook. Try exporting the roster from Aeries again.";
+      : readErrorMessage(err, "This file couldn't be read as an Excel workbook. Try exporting the roster from Aeries again.");
     setMessage(rosterMessage, text, "error");
   } finally {
     // Clearing the input lets the same file be chosen again later.
@@ -741,7 +853,7 @@ infoButtons.forEach((button) => {
 document.querySelectorAll(".info-close").forEach((closeBtn) => {
   closeBtn.addEventListener("click", () => {
     const panel = closeBtn.closest(".info-panel");
-    const button = document.querySelector(`.info-btn[aria-controls="${panel.id}"]`);
+    const button = document.querySelector(`.info-btn[aria-controls="${CSS.escape(panel.id)}"]`);
     if (button) {
       setHelpOpen(button, false);
       button.focus();
@@ -785,13 +897,27 @@ document.querySelectorAll(".info-panel-body a").forEach((link) => {
   }
 });
 
+function localImageUrl(href) {
+  try {
+    const url = new URL(href, document.baseURI);
+    const sameSite = url.protocol === "file:"
+      ? location.protocol === "file:"
+      : url.origin === location.origin;
+    return sameSite && /\.(png|jpe?g|gif|webp)$/i.test(url.pathname) ? url.href : null;
+  } catch (err) {
+    return null;
+  }
+}
+
 document.addEventListener("click", (event) => {
   const link = event.target.closest(".info-panel-body a.image-link");
   if (!link) return;
   event.preventDefault();
 
   const img = link.querySelector("img");
-  lightboxImg.src = link.getAttribute("href") || img.getAttribute("src");
+  const src = localImageUrl(link.getAttribute("href") || img.getAttribute("src"));
+  if (!src) return;
+  lightboxImg.src = src;
   lightboxImg.alt = img.alt;
   lightbox.showModal(); // darkens and disables the rest of the page
 });
