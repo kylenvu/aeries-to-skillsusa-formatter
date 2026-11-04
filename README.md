@@ -1,4 +1,6 @@
 # aeries-to-skillsusa-formatter
+[Github Pages Link](https://ktvuwhs.github.io/aeries-to-skillsusa-formatter/)
+
 Converting an Aeries roster into a format that can be uploaded to SkillsUSA.  Originally made for WHS, Westminster, CA in November 2026.
 
 Using [SheetJS Community Edition](https://docs.sheetjs.com/)
