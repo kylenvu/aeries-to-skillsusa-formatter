@@ -751,12 +751,58 @@ document.querySelectorAll(".info-close").forEach((closeBtn) => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
+  // Escape with an enlarged image open closes only the image.
+  if (lightbox.open) return;
   infoButtons.forEach((button) => {
     if (button.getAttribute("aria-expanded") === "true") {
       setHelpOpen(button, false);
       button.focus();
     }
   });
+});
+
+// ---------- Help images: hints and enlarged view ----------
+// Any link inside a help panel that wraps an image opens that image
+// enlarged over the page instead of in a new tab. Paragraphs directly
+// above an image get a short "click to enlarge" hint.
+
+const lightbox = document.getElementById("lightbox");
+const lightboxImg = document.getElementById("lightbox-img");
+
+document.querySelectorAll(".info-panel-body a").forEach((link) => {
+  const img = link.querySelector("img");
+  if (!img) return;
+
+  link.classList.add("image-link");
+  link.removeAttribute("target"); // the overlay replaces the new tab
+
+  const prev = link.previousElementSibling;
+  if (prev && prev.tagName === "P" && !prev.querySelector(".enlarge-hint")) {
+    const hint = document.createElement("span");
+    hint.className = "enlarge-hint";
+    hint.textContent = " Click the image to enlarge it.";
+    prev.appendChild(hint);
+  }
+});
+
+document.addEventListener("click", (event) => {
+  const link = event.target.closest(".info-panel-body a.image-link");
+  if (!link) return;
+  event.preventDefault();
+
+  const img = link.querySelector("img");
+  lightboxImg.src = link.getAttribute("href") || img.getAttribute("src");
+  lightboxImg.alt = img.alt;
+  lightbox.showModal(); // darkens and disables the rest of the page
+});
+
+// Clicking anywhere except the image itself closes the overlay.
+lightbox.addEventListener("click", (event) => {
+  if (event.target !== lightboxImg) lightbox.close();
+});
+
+lightbox.addEventListener("close", () => {
+  lightboxImg.removeAttribute("src");
 });
 
 // ---------- Init ----------
