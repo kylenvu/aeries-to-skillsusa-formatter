@@ -370,7 +370,29 @@ body {
   font-size: 0.95rem;
 }
 .info-panel-body p { margin: 0.6rem 0; }
-.info-panel-body a { display: block; margin: 0.75rem 0; }
+
+/* Text links (e.g. the video link) stay inline with the paragraph. */
+.info-panel-body p a,
+.info-panel-body p a:visited {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.info-panel-body p a:hover { text-decoration-thickness: 2px; }
+
+/* "Click the image to enlarge it." hint, added by app.js */
+.enlarge-hint {
+  color: var(--muted);
+  font-style: italic;
+}
+
+/* Image links (tagged by app.js) sit on their own line. */
+.info-panel-body a.image-link {
+  display: block;
+  margin: 0.75rem 0;
+  cursor: zoom-in;
+}
 .info-panel-body img {
   display: block;
   width: 100%;
@@ -409,6 +431,38 @@ body {
     from { opacity: 0; transform: translateX(-6px); }
     to   { opacity: 1; transform: none; }
   }
+}
+
+/* ---------- Enlarged image overlay ---------- */
+.lightbox {
+  width: 100vw;
+  height: 100vh;
+  max-width: 100vw;
+  max-height: 100vh;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: zoom-out; /* clicking outside the image closes it */
+}
+.lightbox[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lightbox::backdrop {
+  background: rgba(8, 12, 18, 0.82);
+}
+.lightbox img {
+  display: block;
+  max-width: 94vw;
+  max-height: 92vh;
+  width: auto;
+  height: auto;
+  border-radius: 6px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+  background: #fff;
+  cursor: default;
 }
 
 /* ---------- Footer ---------- */
