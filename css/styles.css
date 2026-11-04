@@ -1,0 +1,451 @@
+/* ---------- Font (local file, works offline) ---------- */
+@font-face {
+  font-family: "Public Sans";
+  src: url("../fonts/public-sans.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ---------- Tokens ---------- */
+:root {
+  --bg: #eef1f4;
+  --surface: #ffffff;
+  --ink: #1c2733;
+  --muted: #5b6b7a;
+  --line: #cfd6de;
+  --accent: #1f5fad;
+  --accent-ink: #ffffff;
+  --done: #2e7d4f;
+  --error: #b42318;
+  --radius: 10px;
+  --font: "Public Sans", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141a21;
+    --surface: #1d252e;
+    --ink: #e6ebf0;
+    --muted: #9aa8b6;
+    --line: #34404c;
+    --accent: #5b9be6;
+    --accent-ink: #0d1620;
+    --done: #5cb884;
+    --error: #f2877c;
+  }
+}
+
+/* ---------- Base ---------- */
+[hidden] { display: none !important; }
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.page {
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: 3rem 1.25rem 4rem;
+}
+
+.page-header h1 {
+  font-size: clamp(1.6rem, 4vw, 2.1rem);
+  font-weight: 800;
+  line-height: 1.15;
+  margin: 0 0 0.5rem;
+}
+
+.intro {
+  color: var(--muted);
+  max-width: 38rem;
+  margin: 0 0 2rem;
+}
+
+/* ---------- Steps ---------- */
+/* Each row holds a step box and, for some steps, a help panel. */
+.step-row {
+  position: relative;
+}
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1rem;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: opacity 0.25s ease, filter 0.25s ease, border-color 0.25s ease;
+}
+
+.step-number {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 0.5rem;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.step-word {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.step-digit {
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.step-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.step-title {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 0 0 0.25rem;
+}
+
+.step-desc {
+  color: var(--muted);
+  margin: 0 0 1rem;
+  max-width: 36rem;
+}
+
+.step-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Locked: greyed out and not interactive */
+.step.is-locked {
+  opacity: 0.45;
+  filter: grayscale(1);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Active: the step the user is on now */
+.step.is-active {
+  border-color: var(--accent);
+  box-shadow: inset 4px 0 0 var(--accent);
+}
+.step.is-active .step-number {
+  color: var(--accent);
+}
+
+/* Complete: finished, still editable */
+.step.is-complete .step-number {
+  color: var(--done);
+}
+.step.is-complete .step-digit::after {
+  content: "\2713";
+  font-size: 1.1rem;
+  margin-left: 0.15rem;
+  vertical-align: super;
+}
+
+/* ---------- Controls ---------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.file-btn,
+.primary-btn {
+  display: inline-flex;
+  align-items: center;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.6rem 1.1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.file-btn {
+  background: transparent;
+  color: var(--accent);
+  border: 1.5px solid var(--accent);
+}
+.file-btn:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.file-btn:focus-within {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+}
+
+.primary-btn {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: 1.5px solid var(--accent);
+}
+.primary-btn:hover:not(:disabled) { filter: brightness(1.08); }
+.primary-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+
+.file-name {
+  color: var(--muted);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+.file-name.has-file {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.select {
+  font: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  padding: 0.55rem 0.75rem;
+  min-width: min(22rem, 100%);
+  max-width: 100%;
+}
+.select:focus { border-color: var(--accent); }
+
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  outline-offset: 2px;
+}
+
+/* ---------- Status messages ---------- */
+.step-message {
+  margin: 0.75rem 0 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.step-message:empty { display: none; }
+.step-message.is-success { color: var(--done); font-weight: 500; }
+.step-message.is-error { color: var(--error); font-weight: 500; }
+
+.program-details {
+  margin: 0.75rem 0 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.program-details:empty { display: none; }
+
+/* ---------- Student preview ---------- */
+.student-preview {
+  margin-top: 0.75rem;
+}
+.student-preview summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+  width: fit-content;
+}
+.table-wrap {
+  overflow-x: auto;
+  max-height: 20rem;
+  overflow-y: auto;
+  margin-top: 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.student-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+}
+.student-preview th,
+.student-preview td {
+  text-align: left;
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+.student-preview th {
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  font-weight: 600;
+}
+.student-preview tbody tr:last-child td { border-bottom: none; }
+
+/* ---------- Help ("i") button and panel ---------- */
+.step-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.info-btn {
+  flex: none;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: -0.2rem;
+}
+.info-btn:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.info-btn[aria-expanded="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+/* Help stays usable before a step is unlocked. */
+.step.is-locked .info-btn { pointer-events: auto; }
+
+.info-panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--accent);
+  border-radius: var(--radius);
+  margin-top: 0.75rem;
+  animation: panel-in 0.18s ease-out;
+}
+
+.info-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1rem 0 1.25rem;
+}
+
+.info-panel-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.info-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin: -0.25rem -0.25rem 0 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.info-close:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+
+.info-panel-body {
+  padding: 0.5rem 1.25rem 1.25rem;
+  font-size: 0.95rem;
+}
+.info-panel-body p { margin: 0.6rem 0; }
+.info-panel-body a { display: block; margin: 0.75rem 0; }
+.info-panel-body img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+
+@keyframes panel-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Wide screens: widen the page so the panel sits to the right of its step. */
+@media (min-width: 1200px) {
+  .page {
+    max-width: 75rem;
+  }
+  .page-header,
+  .steps,
+  .page-footer {
+    max-width: 52rem;
+  }
+  .info-panel {
+    position: absolute;
+    top: 0;
+    left: calc(100% + 1.25rem);
+    width: 21rem;
+    margin-top: 0;
+    max-height: calc(100vh - 2rem);
+    overflow-y: auto;
+    z-index: 5;
+    animation-name: panel-in-side;
+  }
+  @keyframes panel-in-side {
+    from { opacity: 0; transform: translateX(-6px); }
+    to   { opacity: 1; transform: none; }
+  }
+}
+
+/* ---------- Footer ---------- */
+.page-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin-top: 1.5rem;
+}
+
+.text-btn {
+  font: inherit;
+  color: var(--accent);
+  background: none;
+  border: none;
+  padding: 0.25rem 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.privacy-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* ---------- Small screens ---------- */
+@media (max-width: 560px) {
+  .step { grid-template-columns: 4.5rem 1fr; }
+  .step-digit { font-size: 2.25rem; }
+  .step-body { padding: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .step { transition: none; }
+  .info-panel { animation: none; }
+}

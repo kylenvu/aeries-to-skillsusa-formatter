@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aeries to SkillsUSA Roster Converter</title>
+  <!-- Security: everything loads from this project only, and the page may
+       not connect to any server. See the notes at the top of app.js. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; form-action 'none'; base-uri 'none'">
+  <meta name="referrer" content="no-referrer">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <main class="page">
+    <header class="page-header">
+      <h1>Aeries to SkillsUSA roster converter</h1>
+      <p class="intro">Turn an Aeries class roster into a SkillsUSA upload file. Work through each step in order; the next step unlocks when the current one is done.</p>
+    </header>
+
+    <ol class="steps">
+      <!-- ======================= Step 1 ======================= -->
+      <li class="step-row">
+        <div class="step is-active" id="step-1" data-step="1">
+          <div class="step-number" aria-hidden="true">
+            <span class="step-word">Step</span>
+            <span class="step-digit">1</span>
+          </div>
+          <div class="step-body">
+            <div class="step-head">
+              <h2 class="step-title">Upload the SkillsUSA template</h2>
+              <button type="button" class="info-btn" aria-expanded="false" aria-controls="help-1" aria-label="Help for Step 1">i</button>
+            </div>
+            <p class="step-desc">Download the roster template (.xlsx) from the SkillsUSA registration site, then upload it here. The training programs it lists will appear in Step 2.</p>
+            <div class="step-control">
+              <label class="file-btn" id="template-picker">
+                <input type="file" id="template-input" class="visually-hidden" accept=".xlsx">
+                <span>Choose template file</span>
+              </label>
+              <span class="file-name" id="template-name">No file chosen</span>
+              <button type="button" id="change-template-btn" class="text-btn" hidden>Upload a different template</button>
+            </div>
+            <p class="step-message" id="template-message" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <!-- ====== EDIT STEP 1 HELP CONTENT BELOW ======
+             Change the heading, paragraphs and images freely.
+             Images: put the file in the images folder and set src="images/yourfile.png".
+             Always fill in alt="..." with a short description of the image.
+             Clicking an image opens it full size in a new tab (keep href the same as src). -->
+        <aside class="info-panel" id="help-1" aria-labelledby="help-1-title" hidden>
+          <div class="info-panel-head">
+            <h3 class="info-panel-title" id="help-1-title">Getting the SkillsUSA template</h3>
+            <button type="button" class="info-close" aria-label="Close help">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <div class="info-panel-body">
+            <p>Placeholder text. Explain where to find the roster template on the SkillsUSA registration site.</p>
+            <a href="images/help-step1-a.png" target="_blank" rel="noopener">
+              <img src="images/help-step1-a.png" alt="Placeholder: SkillsUSA registration menu">
+            </a>
+            <p>Placeholder text. Describe which button downloads the template and where the file is saved.</p>
+            <a href="images/help-step1-b.png" target="_blank" rel="noopener">
+              <img src="images/help-step1-b.png" alt="Placeholder: template download button">
+            </a>
+            <p>Placeholder text. Add any final tips here.</p>
+          </div>
+        </aside>
+        <!-- ====== END STEP 1 HELP CONTENT ====== -->
+      </li>
+
+      <!-- ======================= Step 2 ======================= -->
+      <li class="step-row">
+        <div class="step is-locked" id="step-2" data-step="2">
+          <div class="step-number" aria-hidden="true">
+            <span class="step-word">Step</span>
+            <span class="step-digit">2</span>
+          </div>
+          <div class="step-body">
+            <div class="step-head">
+              <h2 class="step-title">Choose a training program</h2>
+            </div>
+            <p class="step-desc">Pick the training program these students should be added to.</p>
+            <div class="step-control">
+              <label for="program-select" class="visually-hidden">Training program</label>
+              <select id="program-select" class="select" disabled>
+                <option value="">Upload a template first</option>
+              </select>
+            </div>
+            <p class="program-details" id="program-details"></p>
+          </div>
+        </div>
+      </li>
+
+      <!-- ======================= Step 3 ======================= -->
+      <li class="step-row">
+        <div class="step is-locked" id="step-3" data-step="3">
+          <div class="step-number" aria-hidden="true">
+            <span class="step-word">Step</span>
+            <span class="step-digit">3</span>
+          </div>
+          <div class="step-body">
+            <div class="step-head">
+              <h2 class="step-title">Upload your Aeries roster</h2>
+              <button type="button" class="info-btn" aria-expanded="false" aria-controls="help-3" aria-label="Help for Step 3">i</button>
+            </div>
+            <p class="step-desc">Export the Class Roster report (.xlsx) from Aeries and upload it here. It can include several classes; students in more than one class are added only once.</p>
+            <div class="step-control">
+              <label class="file-btn">
+                <input type="file" id="roster-input" class="visually-hidden" accept=".xlsx" disabled>
+                <span id="roster-btn-text">Choose roster file</span>
+              </label>
+              <span class="file-name" id="roster-name">No file chosen</span>
+            </div>
+            <p class="step-message" id="roster-message" role="status" aria-live="polite"></p>
+            <details class="student-preview" id="student-preview" hidden>
+              <summary>Review students</summary>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr><th scope="col">Last name</th><th scope="col">First name</th><th scope="col">Email</th><th scope="col">Gender</th></tr>
+                  </thead>
+                  <tbody id="student-table-body"></tbody>
+                </table>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- ====== EDIT STEP 3 HELP CONTENT BELOW ======
+             Same rules as Step 1: images live in the images folder, keep alt text filled in. -->
+        <aside class="info-panel" id="help-3" aria-labelledby="help-3-title" hidden>
+          <div class="info-panel-head">
+            <h3 class="info-panel-title" id="help-3-title">Exporting your roster from Aeries</h3>
+            <button type="button" class="info-close" aria-label="Close help">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.25" stroke-linecap="round"/></svg>
+            </button>
+          </div>
+          <div class="info-panel-body">
+            <p>Placeholder text. Explain where to find the Class Roster report in Aeries.</p>
+            <a href="images/help-step3-a.png" target="_blank" rel="noopener">
+              <img src="images/help-step3-a.png" alt="Placeholder: Aeries report menu">
+            </a>
+            <p>Placeholder text. Describe which options to choose and how to export as Excel (.xlsx).</p>
+            <a href="images/help-step3-b.png" target="_blank" rel="noopener">
+              <img src="images/help-step3-b.png" alt="Placeholder: Aeries export options">
+            </a>
+            <p>Placeholder text. Add any final tips here.</p>
+          </div>
+        </aside>
+        <!-- ====== END STEP 3 HELP CONTENT ====== -->
+      </li>
+
+      <!-- ======================= Step 4 ======================= -->
+      <li class="step-row">
+        <div class="step is-locked" id="step-4" data-step="4">
+          <div class="step-number" aria-hidden="true">
+            <span class="step-word">Step</span>
+            <span class="step-digit">4</span>
+          </div>
+          <div class="step-body">
+            <div class="step-head">
+              <h2 class="step-title">Download the upload file</h2>
+            </div>
+            <p class="step-desc">Download the finished Excel file, then upload it on the SkillsUSA registration site. To make another file, choose a different roster in Step 3 or a different program in Step 2.</p>
+            <div class="step-control">
+              <button type="button" id="download-btn" class="primary-btn" disabled>Download Excel file</button>
+            </div>
+            <p class="step-message" id="download-message" role="status" aria-live="polite"></p>
+          </div>
+        </div>
+      </li>
+    </ol>
+
+    <footer class="page-footer">
+      <p class="privacy-note">Files are read in your browser and never leave this computer.</p>
+    </footer>
+  </main>
+
+  <!-- Load order matters: harden.js must run first. -->
+  <script src="js/harden.js"></script>
+  <!-- SheetJS (local copy): reads and writes .xlsx files in the browser -->
+  <script src="js/xlsx.full.min.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
