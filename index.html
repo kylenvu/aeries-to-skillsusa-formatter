@@ -43,7 +43,13 @@
           </div>
         </div>
 
-        <!-- ====== EDIT STEP 1 HELP CONTENT BELOW ====== -->
+        <!-- ====== EDIT STEP 1 HELP CONTENT BELOW ======
+             Images go in the images folder. Wrap each image in a link to the same file:
+               <a href="images/name.png"><img src="images/name.png" alt="Description"></a>
+             Clicking it opens the image enlarged over the page. Any paragraph directly
+             above an image gets "Click the image to enlarge it." added automatically.
+             Links to websites should keep target="_blank" rel="noopener noreferrer"
+             so they open in a new tab and the app keeps your work. -->
         <aside class="info-panel" id="help-1" aria-labelledby="help-1-title" hidden>
           <div class="info-panel-head">
             <h3 class="info-panel-title" id="help-1-title">Getting the SkillsUSA template</h3>
@@ -52,7 +58,7 @@
             </button>
           </div>
           <div class="info-panel-body">
-            <p><bold>IMPORTANT:</bold> You must have training programs in order to upload data.  Check that you do by clicking on the "Membership" icon on the home page, and checking that you have Training Programs listed.  Watch <a href="https://youtu.be/6WE90RBNfCs?si=77GuIb1Z8J-tOeCM">this video</a> (until about the 3 minute mark) for help adding training programs.</p>
+            <p><strong>IMPORTANT:</strong> You must have training programs in order to upload data.  Check that you do by clicking on the "Membership" icon on the home page, and checking that you have Training Programs listed.  Watch <a href="https://youtu.be/6WE90RBNfCs?si=77GuIb1Z8J-tOeCM" target="_blank" rel="noopener noreferrer">this video</a> (until about the 3 minute mark) for help adding training programs.</p>
             <a href="images/help-step1-0.png" target="_blank" rel="noopener">
               <img src="images/help-step1-0.png" alt="Membership icon and list of training programs.">
             </a>
@@ -178,6 +184,11 @@
       <p class="privacy-note">Files are read in your browser and never leave this computer.</p>
     </footer>
   </main>
+
+  <!-- Enlarged image view for the help panels. Filled in by app.js. -->
+  <dialog class="lightbox" id="lightbox" aria-label="Enlarged image">
+    <img id="lightbox-img" alt="">
+  </dialog>
 
   <!-- Load order matters: harden.js must run first. -->
   <script src="js/harden.js"></script>
