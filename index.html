@@ -4,9 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aeries to SkillsUSA Roster Converter</title>
-  <!-- Security: everything loads from this project only, and the page may
-       not connect to any server. See the notes at the top of app.js. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'; form-action 'none'; base-uri 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'none'; media-src 'none'; object-src 'none'; frame-src 'none'; worker-src 'self'; manifest-src 'none'; form-action 'none'; base-uri 'none'; require-trusted-types-for 'script'; trusted-types worker-url">
   <meta name="referrer" content="no-referrer">
   <link rel="stylesheet" href="css/styles.css">
 </head>
@@ -192,9 +190,8 @@
     <img id="lightbox-img" alt="">
   </dialog>
 
-  <!-- Load order matters: harden.js must run first. -->
-  <script src="js/harden.js"></script>
-  <!-- SheetJS (local copy): reads and writes .xlsx files in the browser -->
+  <!-- Load order matters. -->
+  <script src="js/sheet-reader.js"></script>
   <script src="js/xlsx.full.min.js"></script>
   <script src="js/app.js"></script>
 </body>
